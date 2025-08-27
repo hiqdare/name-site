@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>—</title>
+  <meta name="robots" content="noindex" />
+  <!-- Google Fonts: mehrere gut lesbare Familien -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&family=Montserrat:wght@300;400;700&family=Poppins:wght@300;400;700&family=Source+Sans+3:wght@300;400;700&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --transition: 800ms;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      display: grid;
+      place-items: center;
+      background: hsl(210 30% 96%);
+      transition: background-color var(--transition) linear;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    }
+    h1 {
+      margin: 0;
+      font-weight: 700;
+      font-size: clamp(2.6rem, 8vw, 9rem);
+      line-height: 1.05;
+      letter-spacing: 0.02em;
+      text-align: center;
+      color: #111;
+      transition: color var(--transition) linear, font-family 300ms ease;
+      padding: 0 6vw;
+      word-break: break-word;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :root { --transition: 0ms; }
+    }
+  </style>
+</head>
+<body>
+  <h1 id="name">—</h1>
+
+  <script>
+    // 1) Domain -> Anzeige-Name
+    const host = location.hostname.toLowerCase();
+    const NAME_BY_HOST = {
+      "l3on.ch": "Leon",
+      "www.l3on.ch": "Leon",
+      "m3lissa.ch": "Melissa",
+      "www.m3lissa.ch": "Melissa",
+      "r3nata.ch": "Renata",
+      "www.r3nata.ch": "Renata",
+      "h3nrique.ch": "Henrique",
+      "www.h3nrique.ch": "Henrique"
+    };
+    const displayName = NAME_BY_HOST[host] || document.title || "Henrique";
+    document.getElementById("name").textContent = displayName;
+    document.title = displayName;
+
+    // 2) Schriftarten rotieren
+    const FONTS = [
+      'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif',
+      '"Montserrat", Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif',
+      '"Poppins", Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif',
+      '"Source Sans 3", Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif',
+      '"Playfair Display", Georgia, "Times New Roman", Times, serif'
+    ];
+    let fontIdx = Math.floor(Math.random() * FONTS.length);
+
+    // 3) Farben: zufälliger HSL-BG; Text = Komplementär + Kontrast-Korrektur
+    function hslToRgb(h, s, l){
+      s/=100; l/=100;
+      const k = n => (n + h/30) % 12;
+      const a = s * Math.min(l, 1 - l);
+      const f = n => l - a * Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)));
+      return [Math.round(255*f(0)), Math.round(255*f(8)), Math.round(255*f(4))];
+    }
+    function relLuminance(r,g,b){
+      const srgb = [r,g,b].map(v => {
+        v/=255;
+        return v<=0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4);
+      });
+      return 0.2126*srgb[0] + 0.7152*srgb[1] + 0.0722*srgb[2];
+    }
+    function contrastRatio(rgb1, rgb2){
+      const L1 = relLuminance(...rgb1);
+      const L2 = relLuminance(...rgb2);
+      const [hi, lo] = L1 > L2 ? [L1, L2] : [L2, L1];
+      return (hi + 0.05) / (lo + 0.05);
+    }
+    function pickColors(){
+      // BG HSL: kräftig aber nicht Neon
+      const h = Math.floor(Math.random()*360);
+      const s = 60 + Math.floor(Math.random()*25);   // 60–85%
+      const l = 45 + Math.floor(Math.random()*15);   // 45–60%
+      const bg = `hsl(${h} ${s}% ${l}%)`;
+
+      // Komplementär + invertierte Lightness für mehr Kontrast
+      let th = (h + 180) % 360;
+      let ts = s;
+      let tl = 100 - l;
+
+      // Kontrast checken; ggf. zu Schwarz/Weiß fallbacks
+      const bgRgb = hslToRgb(h, s, l);
+      let fgRgb = hslToRgb(th, ts, tl);
+      let ratio = contrastRatio(bgRgb, fgRgb);
+
+      if (ratio < 4.5) {
+        // Versuch: Weiß oder Schwarz
+        const white = [255,255,255], black=[0,0,0];
+        const rWhite = contrastRatio(bgRgb, white);
+        const rBlack = contrastRatio(bgRgb, black);
+        if (Math.max(rWhite, rBlack) >= 4.5) {
+          fgRgb = rWhite > rBlack ? white : black;
+        } else {
+          // als Notnagel: Lightness weiter wegschieben
+          tl = (l < 50) ? 95 : 5;
+          fgRgb = hslToRgb(th, ts, tl);
+        }
+      }
+      const fg = `rgb(${fgRgb[0]} ${fgRgb[1]} ${fgRgb[2]})`;
+      return { bg, fg };
+    }
+
+    function applyStyles(){
+      const { bg, fg } = pickColors();
+      document.body.style.backgroundColor = bg;
+      const el = document.getElementById("name");
+      el.style.color = fg;
+      fontIdx = (fontIdx + 1) % FONTS.length;
+      el.style.fontFamily = FONTS[fontIdx];
+    }
+
+    // Initial + periodischer Wechsel (alle 6s)
+    applyStyles();
+    const intervalMs = 6000;
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let timer = null;
+    function startTimer(){
+      if (!mediaQuery.matches) timer = setInterval(applyStyles, intervalMs);
+    }
+    function stopTimer(){
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+    mediaQuery.addEventListener?.("change", () => { stopTimer(); startTimer(); });
+    startTimer();
+  </script>
+</body>
+</html>
